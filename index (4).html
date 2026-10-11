@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Luau Obfuscator</title>
+  <meta name="description" content="Free online Luau / Lua obfuscator with custom VM, string encryption, opcode shuffling and anti-tamper." />
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --accent-hover: #79b8ff;
+      --success: #3fb950;
+      --danger: #f85149;
+      --warning: #d29922;
+      --radius: 10px;
+      --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* Header */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .logo span {
+      background: linear-gradient(135deg, #58a6ff, #a371f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    /* Layout */
+    main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+    }
+
+    /* Panels */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-header {
+      padding: 0.75rem 1rem;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .panel-body {
+      padding: 1rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    /* Textareas */
+    textarea {
+      width: 100%;
+      min-height: 280px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      padding: 0.85rem;
+      resize: vertical;
+      line-height: 1.45;
+      tab-size: 2;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+    }
+
+    textarea::placeholder { color: var(--muted); }
+
+    #output {
+      min-height: 320px;
+      background: #0a0e14;
+    }
+
+    /* Options */
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    @media (max-width: 400px) {
+      .options-grid { grid-template-columns: 1fr; }
+    }
+
+    .opt {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.55rem;
+      border-radius: 6px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.82rem;
+      transition: background 0.15s;
+    }
+
+    .opt:hover { background: var(--surface2); }
+
+    .opt input {
+      accent-color: var(--accent);
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+
+    .opt label { cursor: pointer; flex: 1; }
+
+    .section-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 0.75rem 0 0.35rem;
+      font-weight: 600;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0.55rem 1rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.875rem;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0d1117;
+      width: 100%;
+      padding: 0.7rem;
+      font-size: 0.95rem;
+    }
+
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .btn-secondary:hover { background: #30363d; }
+
+    .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-row .btn { flex: 1; min-width: 110px; }
+
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+    }
+
+    .stat {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem 0.65rem;
+    }
+
+    .stat-label { color: var(--muted); font-size: 0.7rem; }
+    .stat-value { font-weight: 600; font-family: var(--mono); }
+
+    /* Status */
+    .status {
+      font-size: 0.8rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      display: none;
+    }
+
+    .status.show { display: block; }
+    .status.ok { background: rgba(63,185,80,0.12); color: var(--success); border: 1px solid rgba(63,185,80,0.3); }
+    .status.err { background: rgba(248,81,73,0.12); color: var(--danger); border: 1px solid rgba(248,81,73,0.3); }
+    .status.info { background: rgba(88,166,255,0.1); color: var(--accent); border: 1px solid rgba(88,166,255,0.25); }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      border-top: 1px solid var(--border);
+      margin-top: 1rem;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* Loading spinner */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    .btn.loading .spinner { display: inline-block; }
+    .btn.loading .btn-text { display: none; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Preset buttons */
+    .presets {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.5rem;
+    }
+
+    .preset {
+      font-size: 0.75rem;
+      padding: 0.3rem 0.6rem;
+      border-radius: 999px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .preset:hover, .preset.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(88,166,255,0.08);
+    }
+
+    /* Range input */
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.82rem;
+      margin-top: 0.4rem;
+    }
+
+    .range-row input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+    }
+
+    .range-val {
+      font-family: var(--mono);
+      min-width: 3.5rem;
+      text-align: right;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span>Luau Obfuscator</span>
+    <span class="badge">VM • Custom Bytecode</span>
+  </div>
+  <div style="font-size:0.8rem;color:var(--muted)">
+    Client-side • Nothing is uploaded
+  </div>
+</header>
+
+<main>
+  <!-- Left column: Input + Output -->
+  <div style="display:flex;flex-direction:column;gap:1.25rem;">
+    <div class="panel">
+      <div class="panel-header">
+        <span>Input (Luau / Lua)</span>
+        <div class="btn-row" style="gap:0.4rem;">
+          <button class="btn btn-secondary" style="padding:0.3rem 0.7rem;font-size:0.8rem;" onclick="loadExample()">Example</button>
+          <button class="btn btn-secondary" style="padding:0.3rem 0.7rem;font-size:0.8rem;" onclick="clearInput()">Clear</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <textarea id="input" placeholder="Paste your Luau / Lua source code here..." spellcheck="false"></textarea>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span>Output</span>
+        <div class="btn-row" style="gap:0.4rem;">
+          <button class="btn btn-secondary" style="padding:0.3rem 0.7rem;font-size:0.8rem;" onclick="copyOutput()">Copy</button>
+          <button class="btn btn-secondary" style="padding:0.3rem 0.7rem;font-size:0.8rem;" onclick="downloadOutput()">Download</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div id="status" class="status"></div>
+        <textarea id="output" readonly placeholder="Obfuscated code will appear here..." spellcheck="false"></textarea>
+        <div id="statsBox" class="stats" style="display:none;margin-top:0.5rem;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right column: Options -->
+  <div class="panel" style="align-self:start;position:sticky;top:1rem;">
+    <div class="panel-header">Options</div>
+    <div class="panel-body">
+
+      <div class="presets">
+        <button class="preset active" data-preset="balanced" onclick="applyPreset('balanced')">Balanced</button>
+        <button class="preset" data-preset="max" onclick="applyPreset('max')">Maximum</button>
+        <button class="preset" data-preset="light" onclick="applyPreset('light')">Light</button>
+        <button class="preset" data-preset="stealth" onclick="applyPreset('stealth')">Stealth</button>
+      </div>
+
+      <div class="section-title">Protection</div>
+      <div class="options-grid">
+        <div class="opt"><input type="checkbox" id="opt-strEnc" checked><label for="opt-strEnc">String Encrypt</label></div>
+        <div class="opt"><input type="checkbox" id="opt-shuffle" checked><label for="opt-shuffle">Opcode Shuffle</label></div>
+        <div class="opt"><input type="checkbox" id="opt-controlFlow"><label for="opt-controlFlow">Control Flow</label></div>
+        <div class="opt"><input type="checkbox" id="opt-deadCode" checked><label for="opt-deadCode">Dead Code</label></div>
+        <div class="opt"><input type="checkbox" id="opt-antiHook" checked><label for="opt-antiHook">Anti-Hook</label></div>
+        <div class="opt"><input type="checkbox" id="opt-decoy" checked><label for="opt-decoy">Decoy Funcs</label></div>
+        <div class="opt"><input type="checkbox" id="opt-tamperDecoys"><label for="opt-tamperDecoys">Tamper Decoys</label></div>
+        <div class="opt"><input type="checkbox" id="opt-opcodeDecoys" checked><label for="opt-opcodeDecoys">Opcode Decoys</label></div>
+        <div class="opt"><input type="checkbox" id="opt-paged"><label for="opt-paged">Paged Payload</label></div>
+        <div class="opt"><input type="checkbox" id="opt-neutralizeEnv" checked><label for="opt-neutralizeEnv">Neutralize Env</label></div>
+      </div>
+
+      <div class="section-title">Output Style</div>
+      <div class="options-grid">
+        <div class="opt"><input type="checkbox" id="opt-banner" checked><label for="opt-banner">Banner</label></div>
+        <div class="opt"><input type="checkbox" id="opt-packWrapper" checked><label for="opt-packWrapper">Pack Wrapper</label></div>
+        <div class="opt"><input type="checkbox" id="opt-oneLine"><label for="opt-oneLine">One-Line</label></div>
+        <div class="opt"><input type="checkbox" id="opt-v2"><label for="opt-v2">Base85 (v2)</label></div>
+        <div class="opt"><input type="checkbox" id="opt-stealth"><label for="opt-stealth">Stealth Names</label></div>
+        <div class="opt"><input type="checkbox" id="opt-junk" checked><label for="opt-junk">Junk Code</label></div>
+      </div>
+
+      <div class="range-row">
+        <label for="junkMax">Junk max</label>
+        <input type="range" id="junkMax" min="0" max="45000" step="1024" value="12000" oninput="updateJunkLabel()">
+        <span class="range-val" id="junkVal">12 KB</span>
+      </div>
+
+      <div style="margin-top:1.25rem;">
+        <button class="btn btn-primary" id="btnObfuscate" onclick="runObfuscate()">
+          <span class="spinner"></span>
+          <span class="btn-text">Obfuscate</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  Runs entirely in your browser. Source never leaves your device.<br>
+  Powered by a custom Luau bytecode VM.
+</footer>
+
+<!-- Obfuscator core -->
+<script src="obfuscator-core.js"></script>
+
+<script>
+  // ---------- UI helpers ----------
+  const $ = id => document.getElementById(id);
+
+  function updateJunkLabel() {
+    const v = +$('junkMax').value;
+    $('junkVal').textContent = v >= 1024 ? Math.round(v/1024) + ' KB' : v + ' B';
+  }
+
+  function setStatus(msg, type = 'info') {
+    const el = $('status');
+    el.textContent = msg;
+    el.className = 'status show ' + type;
+  }
+
+  function hideStatus() {
+    $('status').className = 'status';
+  }
+
+  function getOptions() {
+    return {
+      strEnc:          $('opt-strEnc').checked,
+      shuffle:         $('opt-shuffle').checked,
+      controlFlow:     $('opt-controlFlow').checked,
+      deadCode:        $('opt-deadCode').checked,
+      antiHook:        $('opt-antiHook').checked,
+      decoy:           $('opt-decoy').checked,
+      tamperDecoys:    $('opt-tamperDecoys').checked,
+      opcodeDecoys:    $('opt-opcodeDecoys').checked,
+      paged:           $('opt-paged').checked,
+      neutralizeEnv:   $('opt-neutralizeEnv').checked,
+      banner:          $('opt-banner').checked,
+      packWrapper:     $('opt-packWrapper').checked,
+      oneLine:         $('opt-oneLine').checked,
+      v2:              $('opt-v2').checked,
+      stealth:         $('opt-stealth').checked,
+      junk:            $('opt-junk').checked,
+      junkMaxBytes:    +$('junkMax').value,
+      adaptiveJunk:    true,
+    };
+  }
+
+  // ---------- Presets ----------
+  const presets = {
+    light: {
+      strEnc: true, shuffle: true, controlFlow: false, deadCode: false,
+      antiHook: false, decoy: false, tamperDecoys: false, opcodeDecoys: false,
+      paged: false, neutralizeEnv: true, banner: true, packWrapper: true,
+      oneLine: false, v2: false, stealth: false, junk: false, junkMaxBytes: 0
+    },
+    balanced: {
+      strEnc: true, shuffle: true, controlFlow: false, deadCode: true,
+      antiHook: true, decoy: true, tamperDecoys: false, opcodeDecoys: true,
+      paged: false, neutralizeEnv: true, banner: true, packWrapper: true,
+      oneLine: false, v2: false, stealth: false, junk: true, junkMaxBytes: 12000
+    },
+    max: {
+      strEnc: true, shuffle: true, controlFlow: true, deadCode: true,
+      antiHook: true, decoy: true, tamperDecoys: true, opcodeDecoys: true,
+      paged: true, neutralizeEnv: true, banner: true, packWrapper: true,
+      oneLine: false, v2: true, stealth: false, junk: true, junkMaxBytes: 28000
+    },
+    stealth: {
+      strEnc: true, shuffle: true, controlFlow: true, deadCode: true,
+      antiHook: true, decoy: true, tamperDecoys: true, opcodeDecoys: true,
+      paged: true, neutralizeEnv: true, banner: false, packWrapper: true,
+      oneLine: true, v2: true, stealth: true, junk: true, junkMaxBytes: 8000
+    }
+  };
+
+  function applyPreset(name) {
+    const p = presets[name];
+    if (!p) return;
+
+    document.querySelectorAll('.preset').forEach(b => b.classList.toggle('active', b.dataset.preset === name));
+
+    for (const [k, v] of Object.entries(p)) {
+      if (k === 'junkMaxBytes') {
+        $('junkMax').value = v;
+        updateJunkLabel();
+      } else {
+        const el = $('opt-' + k);
+        if (el) el.checked = v;
+      }
+    }
+  }
+
+  // ---------- Actions ----------
+  function loadExample() {
+    $('input').value = `-- Example Luau script
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local function greet(name)
+  print("Hello, " .. name .. "!")
+  return true
+end
+
+local score = 0
+for i = 1, 10 do
+  score = score + i
+end
+
+greet(player and player.Name or "Guest")
+print("Final score:", score)
+
+return {
+  version = "1.0",
+  author = "obfuscator-demo"
+}`;
+    hideStatus();
+  }
+
+  function clearInput() {
+    $('input').value = '';
+    $('output').value = '';
+    $('statsBox').style.display = 'none';
+    hideStatus();
+  }
+
+  function copyOutput() {
+    const out = $('output').value;
+    if (!out) return;
+    navigator.clipboard.writeText(out).then(() => {
+      setStatus('Copied to clipboard!', 'ok');
+      setTimeout(hideStatus, 2000);
+    }).catch(() => {
+      // fallback
+      $('output').select();
+      document.execCommand('copy');
+      setStatus('Copied!', 'ok');
+      setTimeout(hideStatus, 2000);
+    });
+  }
+
+  function downloadOutput() {
+    const out = $('output').value;
+    if (!out) return;
+    const blob = new Blob([out], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'obfuscated.lua';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function runObfuscate() {
+    const src = $('input').value.trim();
+    if (!src) {
+      setStatus('Please paste some Luau / Lua code first.', 'err');
+      return;
+    }
+
+    if (typeof window.obfuscate !== 'function') {
+      setStatus('Obfuscator core failed to load.', 'err');
+      return;
+    }
+
+    const btn = $('btnObfuscate');
+    btn.disabled = true;
+    btn.classList.add('loading');
+    hideStatus();
+    $('output').value = '';
+    $('statsBox').style.display = 'none';
+
+    // Run async so UI can update
+    setTimeout(() => {
+      try {
+        const opts = getOptions();
+        const start = performance.now();
+        const result = window.obfuscate(src, opts);
+        const ms = Math.round(performance.now() - start);
+
+        $('output').value = result.code;
+
+        // Stats
+        const s = result.stats || {};
+        const box = $('statsBox');
+        box.style.display = 'grid';
+        box.innerHTML = `
+          <div class="stat"><div class="stat-label">Build ID</div><div class="stat-value">${result.buildId || '—'}</div></div>
+          <div class="stat"><div class="stat-label">Time</div><div class="stat-value">${ms} ms</div></div>
+          <div class="stat"><div class="stat-label">Instructions</div><div class="stat-value">${s.instrs ?? '—'}</div></div>
+          <div class="stat"><div class="stat-label">Constants</div><div class="stat-value">${s.consts ?? '—'}</div></div>
+          <div class="stat"><div class="stat-label">Protos</div><div class="stat-value">${s.protos ?? '—'}</div></div>
+          <div class="stat"><div class="stat-label">Output size</div><div class="stat-value">${formatBytes(s.outputBytes || result.code.length)}</div></div>
+        `;
+
+        setStatus(`Done in ${ms} ms • ${formatBytes(result.code.length)}`, 'ok');
+      } catch (err) {
+        console.error(err);
+        setStatus('Error: ' + (err.message || String(err)), 'err');
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+      }
+    }, 30);
+  }
+
+  function formatBytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  // Keyboard shortcut: Ctrl+Enter
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      runObfuscate();
+    }
+  });
+
+  // Init
+  updateJunkLabel();
+  applyPreset('balanced');
+</script>
+</body>
+</html>
